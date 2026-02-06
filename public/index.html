@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1>Welcome Back</h1>
+    <p class="subtitle">Log in to your account</p>
+  </header>
+
+  <main class="container">
+    <div class="card" style="max-width: 400px; margin: auto;">
+      <form id="loginForm">
+        <div class="field">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" placeholder="you@example.com" required />
+        </div>
+
+        <div class="field" style="margin-top: 16px;">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" placeholder="••••••••" required />
+        </div>
+
+        <div class="actions" style="margin-top: 24px;">
+          <button type="submit" class="btn" style="width: 100%;">Log In</button>
+        </div>
+
+        <p style="text-align: center; margin-top: 16px;">
+          <a href="#" class="link">Forgot password?</a>
+        </p>
+
+        <p style="text-align: center; margin-top: 12px; font-size: 14px;">
+          Don’t have an account?
+          <a href="signup.html" class="link">Sign up</a>
+        </p>
+      </form>
+    </div>
+  </main>
+
+  
+
+  <script>
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      let data = {
+          email: document.getElementById("loginEmail").value,
+          password: document.getElementById("loginPassword").value
+      };
+
+      try {
+          let res = await fetch("http://localhost:5000/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data)
+          });
+
+          let result = await res.json();
+          alert(result.message || result.error);
+
+          if (res.ok) {
+              window.location.href = "qr.html";
+          }
+      } catch (error) {
+          alert("Error connecting to server.");
+      }
+  });
+  </script>
+</body>
+</html>

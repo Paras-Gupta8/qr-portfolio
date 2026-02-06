@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign Up</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1>Create an Account</h1>
+    <p class="subtitle">Join us and start your journey</p>
+  </header>
+
+  <main class="container">
+    <div class="card" style="max-width: 400px; margin: auto;">
+      <!-- Added ID for form -->
+      <form id="signupForm">
+        <div class="field">
+          <label for="signupName">Full Name</label>
+          <input type="text" id="signupName" placeholder="John Doe" required />
+        </div>
+
+        <div class="field" style="margin-top: 16px;">
+          <label for="signupEmail">Email</label>
+          <input type="email" id="signupEmail" placeholder="you@example.com" required />
+        </div>
+
+        <div class="field" style="margin-top: 16px;">
+          <label for="signupPassword">Password</label>
+          <input type="password" id="signupPassword" placeholder="••••••••" required />
+        </div>
+
+        <div class="field" style="margin-top: 16px;">
+          <label for="confirmPassword">Confirm Password</label>
+          <input type="password" id="confirmPassword" placeholder="••••••••" required />
+        </div>
+
+        <div class="actions" style="margin-top: 24px;">
+          <button type="submit" class="btn" style="width: 100%;">Sign Up</button>
+        </div>
+
+        <p style="text-align: center; margin-top: 16px; font-size: 14px;">
+          Already have an account?
+          <a href="index.html" class="link">Log in</a>
+        </p>
+      </form>
+    </div>
+  </main>
+
+  
+
+  <!-- Script should be here -->
+  <script>
+document.getElementById("signupForm").addEventListener("submit", async function (e) {
+  e.preventDefault();
+
+  const name = document.getElementById("signupName").value.trim();
+  const email = document.getElementById("signupEmail").value.trim();
+  const password = document.getElementById("signupPassword").value.trim();
+  const confirmPassword = document.getElementById("confirmPassword").value.trim();
+
+  if (password !== confirmPassword) {
+    alert("Passwords do not match");
+    return;
+  }
+
+  try {
+    const res = await fetch("http://localhost:5000/signup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ email, password })
+    });
+
+    const result = await res.json();
+    alert(result.message || result.error);
+
+    if (res.ok) {
+      window.location.href = "index.html"; // go to login
+    }
+  } catch (err) {
+    alert("Server error. Is backend running?");
+  }
+});
+</script>
+
+</body>
+</html>
