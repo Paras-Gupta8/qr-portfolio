@@ -1,75 +1,55 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login</title>
-  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="site-header">
-    <h1>Welcome Back</h1>
-    <p class="subtitle">Log in to your account</p>
-  </header>
+  <h2>Login</h2>
 
-  <main class="container">
-    <div class="card" style="max-width: 400px; margin: auto;">
-      <form id="loginForm">
-        <div class="field">
-          <label for="loginEmail">Email</label>
-          <input type="email" id="loginEmail" placeholder="you@example.com" required />
-        </div>
+  <input id="email" placeholder="Email"><br><br>
+  <input id="password" type="password" placeholder="Password"><br><br>
+  <button onclick="login()">Login</button>
 
-        <div class="field" style="margin-top: 16px;">
-          <label for="loginPassword">Password</label>
-          <input type="password" id="loginPassword" placeholder="••••••••" required />
-        </div>
+  <hr>
 
-        <div class="actions" style="margin-top: 24px;">
-          <button type="submit" class="btn" style="width: 100%;">Log In</button>
-        </div>
+  <h2>Generate QR Portfolio</h2>
+  <input id="resume" placeholder="Resume Link"><br><br>
+  <input id="video" placeholder="YouTube Video Link"><br><br>
+  <button onclick="generate()">Generate</button>
 
-        <p style="text-align: center; margin-top: 16px;">
-          <a href="#" class="link">Forgot password?</a>
-        </p>
-
-        <p style="text-align: center; margin-top: 12px; font-size: 14px;">
-          Don’t have an account?
-          <a href="signup.html" class="link">Sign up</a>
-        </p>
-      </form>
-    </div>
-  </main>
-
-  
+  <div id="output"></div>
 
   <script>
-  document.getElementById("loginForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
+    async function login() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
 
-      let data = {
-          email: document.getElementById("loginEmail").value,
-          password: document.getElementById("loginPassword").value
-      };
+      const res = await fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
 
-      try {
-          let res = await fetch("https://qr-portfolio.onrender.com/login", {
+      const data = await res.json();
+      alert(data.message || data.error);
+    }
 
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data)
-          });
+    async function generate() {
+      const resume = document.getElementById("resume").value;
+      const video = document.getElementById("video").value;
 
-          let result = await res.json();
-          alert(result.message || result.error);
+      const res = await fetch("/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resume, video })
+      });
 
-          if (res.ok) {
-              window.location.href = "qr.html";
-          }
-      } catch (error) {
-          alert("Error connecting to server.");
-      }
-  });
+      const data = await res.json();
+      document.getElementById("output").innerHTML = `
+        <p><a href="${data.link}" target="_blank">Open Portfolio</a></p>
+        <img src="${data.qrCode}" width="200">
+      `;
+    }
   </script>
 </body>
 </html>

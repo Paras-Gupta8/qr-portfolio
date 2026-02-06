@@ -3,7 +3,6 @@ const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const QRCode = require("qrcode");
-const os = require("os");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -12,22 +11,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ------------------ HELPERS ------------------
-function getLocalIP() {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name]) {
-      if (iface.family === "IPv4" && !iface.internal) {
-        return iface.address;
-      }
-    }
-  }
-  return "localhost";
-}
-
-const LOCAL_IP = getLocalIP();
-
-// ------------------ FILE SETUP ------------------
+// ---------------- FILE SETUP ----------------
 const USERS_FILE = path.join(__dirname, "users.json");
 const PUBLIC_DIR = path.join(__dirname, "public");
 
@@ -41,7 +25,7 @@ if (!fs.existsSync(PUBLIC_DIR)) {
   fs.mkdirSync(PUBLIC_DIR);
 }
 
-// ------------------ USER HELPERS ------------------
+// ---------------- HELPERS ----------------
 function loadUsers() {
   return JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
 }
@@ -50,7 +34,7 @@ function saveUsers(users) {
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
 }
 
-// ------------------ SIGNUP ------------------
+// ---------------- SIGNUP ----------------
 app.post("/signup", (req, res) => {
   const { email, password } = req.body;
   const users = loadUsers();
@@ -65,7 +49,7 @@ app.post("/signup", (req, res) => {
   res.json({ message: "Signup successful!" });
 });
 
-// ------------------ LOGIN ------------------
+// ---------------- LOGIN ----------------
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
   const users = loadUsers();
@@ -81,11 +65,10 @@ app.post("/login", (req, res) => {
   res.json({ message: "Login successful!" });
 });
 
-// ------------------ QR GENERATION ------------------
+// ---------------- QR GENERATION ----------------
 app.post("/generate", async (req, res) => {
   let { resume, video } = req.body;
 
-  // Normalize YouTube URL
   try {
     if (video.includes("youtube.com/watch")) {
       const videoId = new URL(video).searchParams.get("v");
@@ -94,11 +77,11 @@ app.post("/generate", async (req, res) => {
       const videoId = video.split("youtu.be/")[1].split("?")[0];
       video = `https://www.youtube.com/embed/${videoId}`;
     }
-  } catch (err) {
+  } catch {
     return res.status(400).json({ error: "Invalid YouTube URL" });
   }
 
-  const micrositeHTML = `
+  const html = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -106,40 +89,29 @@ app.post("/generate", async (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-  <h1>Resume</h1>
+  <h2>Resume</h2>
   <a href="${resume}" target="_blank">View Resume</a>
 
-  <h1>Intro Video</h1>
-  <iframe 
-    src="${video}" 
-    width="100%" 
-    height="400" 
-    frameborder="0"
-    allowfullscreen>
-  </iframe>
+  <h2>Intro Video</h2>
+  <iframe src="${video}" width="100%" height="400" allowfullscreen></iframe>
 </body>
-</html>`;
+</html>
+`;
 
   const fileName = `portfolio_${Date.now()}.html`;
   const filePath = path.join(PUBLIC_DIR, fileName);
+  fs.writeFileSync(filePath, html);
 
-  fs.writeFileSync(filePath, micrositeHTML);
+  const link = `https://qr-portfolio.onrender.com/${fileName}`;
+  const qrCode = await QRCode.toDataURL(link);
 
-  let micrositeURL = `https://qr-portfolio.onrender.com/${fileName}`;
-  const qrCodeData = await QRCode.toDataURL(micrositeURL);
-
-  res.json({
-    qrCode: qrCodeData,
-    link: micrositeURL
-  });
+  res.json({ qrCode, link });
 });
 
-// ------------------ STATIC FILES ------------------
+// ---------------- STATIC FILES ----------------
 app.use(express.static(PUBLIC_DIR));
 
-// ------------------ SERVER ------------------
+// ---------------- SERVER ----------------
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("Server running at:");
-  console.log(`👉 http://localhost:${PORT}`);
-  console.log(`👉 http://${LOCAL_IP}:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
