@@ -125,7 +125,7 @@ app.post("/generate", async (req, res) => {
 
   fs.writeFileSync(filePath, micrositeHTML);
 
-  const micrositeURL = `http://${LOCAL_IP}:${PORT}/${fileName}`;
+  let micrositeURL = `https://qr-portfolio.onrender.com/${fileName}`;
   const qrCodeData = await QRCode.toDataURL(micrositeURL);
 
   res.json({
