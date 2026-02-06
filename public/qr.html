@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Generate Portfolio QR</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/style.css">
+
 </head>
 <body>
   <header class="site-header">
@@ -46,7 +47,8 @@
       };
 
       try {
-        let res = await fetch("http://localhost:5000/generate", {
+        let res = await fetch("https://qr-portfolio.onrender.com/generate", {
+
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data)
