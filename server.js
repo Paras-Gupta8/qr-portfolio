@@ -1,8 +1,8 @@
 const express = require("express");
 const cors = require("cors");
-const fs = require("fs");
 const path = require("path");
 const QRCode = require("qrcode");
+const mongoose = require("mongoose");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -10,54 +10,36 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, "public")));
 
-// ---------------- FILE SETUP ----------------
-const USERS_FILE = path.join(__dirname, "users.json");
-const PUBLIC_DIR = path.join(__dirname, "public");
+// ---------- DATABASE ----------
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch(err => console.error(err));
 
-// Ensure users.json exists
-if (!fs.existsSync(USERS_FILE)) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify([]));
-}
+const User = mongoose.model("User", new mongoose.Schema({
+  email: { type: String, unique: true },
+  password: String
+}));
 
-// Ensure public folder exists
-if (!fs.existsSync(PUBLIC_DIR)) {
-  fs.mkdirSync(PUBLIC_DIR);
-}
-
-// ---------------- HELPERS ----------------
-function loadUsers() {
-  return JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
-}
-
-function saveUsers(users) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-}
-
-// ---------------- SIGNUP ----------------
-app.post("/signup", (req, res) => {
+// ---------- SIGNUP ----------
+app.post("/signup", async (req, res) => {
   const { email, password } = req.body;
-  const users = loadUsers();
 
-  if (users.find(u => u.email === email)) {
+  const exists = await User.findOne({ email });
+  if (exists) {
     return res.status(400).json({ error: "Email already exists" });
   }
 
-  users.push({ email, password });
-  saveUsers(users);
-
+  await User.create({ email, password });
   res.json({ message: "Signup successful!" });
 });
 
-// ---------------- LOGIN ----------------
-app.post("/login", (req, res) => {
+// ---------- LOGIN ----------
+app.post("/login", async (req, res) => {
   const { email, password } = req.body;
-  const users = loadUsers();
 
-  const user = users.find(
-    u => u.email === email && u.password === password
-  );
-
+  const user = await User.findOne({ email, password });
   if (!user) {
     return res.status(401).json({ error: "Invalid email or password" });
   }
@@ -65,18 +47,16 @@ app.post("/login", (req, res) => {
   res.json({ message: "Login successful!" });
 });
 
-// ---------------- QR GENERATION ----------------
+// ---------- QR ----------
 app.post("/generate", async (req, res) => {
   let { resume, video } = req.body;
 
   try {
-    if (video.includes("youtube.com/watch")) {
-      const videoId = new URL(video).searchParams.get("v");
-      video = `https://www.youtube.com/embed/${videoId}`;
-    } else if (video.includes("youtu.be/")) {
-      const videoId = video.split("youtu.be/")[1].split("?")[0];
-      video = `https://www.youtube.com/embed/${videoId}`;
-    }
+    const videoId = video.includes("youtu.be")
+      ? video.split("youtu.be/")[1].split("?")[0]
+      : new URL(video).searchParams.get("v");
+
+    video = `https://www.youtube.com/embed/${videoId}`;
   } catch {
     return res.status(400).json({ error: "Invalid YouTube URL" });
   }
@@ -84,34 +64,24 @@ app.post("/generate", async (req, res) => {
   const html = `
 <!DOCTYPE html>
 <html>
-<head>
-  <title>My Portfolio</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
 <body>
-  <h2>Resume</h2>
-  <a href="${resume}" target="_blank">View Resume</a>
-
-  <h2>Intro Video</h2>
-  <iframe src="${video}" width="100%" height="400" allowfullscreen></iframe>
+<h2>Resume</h2>
+<a href="${resume}" target="_blank">View Resume</a>
+<h2>Intro Video</h2>
+<iframe src="${video}" width="100%" height="400"></iframe>
 </body>
-</html>
-`;
+</html>`;
 
   const fileName = `portfolio_${Date.now()}.html`;
-  const filePath = path.join(PUBLIC_DIR, fileName);
-  fs.writeFileSync(filePath, html);
+  const filePath = path.join(__dirname, "public", fileName);
+  require("fs").writeFileSync(filePath, html);
 
-  const link = `https://qr-portfolio.onrender.com/${fileName}`;
+  const link = `${process.env.RENDER_EXTERNAL_URL}/${fileName}`;
   const qrCode = await QRCode.toDataURL(link);
 
   res.json({ qrCode, link });
 });
 
-// ---------------- STATIC FILES ----------------
-app.use(express.static(PUBLIC_DIR));
-
-// ---------------- SERVER ----------------
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Running on ${PORT}`);
 });
