@@ -239,3 +239,36 @@ h4 {
 .pill:hover {
   background: #e9dcff;
 }
+
+/* ===============================
+   LOGIN PAGE FIX (CLICK ISSUE)
+================================ */
+
+/* Center login page properly */
+.page-center {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+/* Login card specific spacing */
+.page-center .card {
+  width: 100%;
+  max-width: 420px;
+  pointer-events: auto;
+}
+
+/* Ensure form & button are clickable */
+form {
+  pointer-events: auto;
+}
+
+button,
+.btn {
+  pointer-events: auto;
+  cursor: pointer;
+  position: relative;
+  z-index: 5;
+}

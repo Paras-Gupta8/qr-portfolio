@@ -2,66 +2,75 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <title>Login | QR Portfolio</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login</title>
-  <link rel="stylesheet" href="/style.css">
 
+  <!-- IMPORTANT: path must be correct -->
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
 
-<header class="site-header">
-  <h1>Welcome Back</h1>
-  <p class="subtitle">Log in to your account</p>
-</header>
+  <div class="page-center">
+    <div class="card">
+      <h1>Welcome Back</h1>
+      <p class="subtitle">Log in to your account</p>
 
-<main class="container">
-  <div class="card" style="max-width: 420px; margin: auto;">
-    <form id="loginForm">
+      <form id="loginForm">
+        <div class="field">
+          <label>Email</label>
+          <input
+            type="email"
+            id="loginEmail"
+            placeholder="you@example.com"
+            required
+          />
+        </div>
 
-      <div class="field">
-        <label>Email</label>
-        <input type="email" id="loginEmail" placeholder="you@example.com" required />
-      </div>
+        <div class="field">
+          <label>Password</label>
+          <input
+            type="password"
+            id="loginPassword"
+            placeholder="••••••••"
+            required
+          />
+        </div>
 
-      <div class="field" style="margin-top:16px;">
-        <label>Password</label>
-        <input type="password" id="loginPassword" placeholder="••••••••" required />
-      </div>
+        <!-- BUTTON TYPE IS IMPORTANT -->
+        <button type="submit" class="btn">Log In</button><button type="submit" class="btn" id="loginBtn">Log In</button>
+      </form>
 
-      <div class="actions" style="margin-top:24px;">
-        <button class="btn" style="width:100%">Log In</button>
-      </div>
-
-      <p style="text-align:center; margin-top:14px;">
+      <p class="footer-text">
         Don’t have an account?
-        <a href="signup.html" class="link">Sign up</a>
+        <a href="/signup.html">Sign up</a>
       </p>
-
-    </form>
+    </div>
   </div>
-</main>
-
-<footer class="site-footer">
-  <p>&copy; 2025 QR Portfolio</p>
-</footer>
 
 <script>
-document.getElementById("loginForm").addEventListener("submit", async e => {
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  console.log("LOGIN CLICKED");
 
-  const res = await fetch("/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: loginEmail.value,
-      password: loginPassword.value
-    })
-  });
+  const email = document.getElementById("loginEmail").value;
+  const password = document.getElementById("loginPassword").value;
 
-  const data = await res.json();
-  alert(data.message || data.error);
+  try {
+    const res = await fetch("/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
 
-  if (res.ok) location.href = "qr.html";
+    const data = await res.json();
+    alert(data.message || data.error);
+
+    if (res.ok) {
+      window.location.href = "/qr.html";
+    }
+  } catch (err) {
+    alert("Server error. Is backend running?");
+  }
 });
 </script>
 

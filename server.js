@@ -13,10 +13,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
 // ---------- DATABASE ----------
-mongoose.connect(process.env.MONGO_URI)
+/*mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.error(err));
-
+*/
 const User = mongoose.model("User", new mongoose.Schema({
   email: { type: String, unique: true },
   password: String
@@ -28,7 +28,7 @@ app.post("/signup", async (req, res) => {
 
   const exists = await User.findOne({ email });
   if (exists) {
-    return res.status(400).json({ error: "Email already exists" });
+    return res.status(400).json({ error: "Email already sexists" });
   }
 
   await User.create({ email, password });
@@ -36,16 +36,21 @@ app.post("/signup", async (req, res) => {
 });
 
 // ---------- LOGIN ----------
-app.post("/login", async (req, res) => {
+app.post("/login", (req, res) => {
   const { email, password } = req.body;
+  const users = loadUsers();
 
-  const user = await User.findOne({ email, password });
+  const user = users.find(
+    u => u.email === email && u.password === password
+  );
+
   if (!user) {
     return res.status(401).json({ error: "Invalid email or password" });
   }
 
   res.json({ message: "Login successful!" });
 });
+
 
 // ---------- QR ----------
 app.post("/generate", async (req, res) => {
