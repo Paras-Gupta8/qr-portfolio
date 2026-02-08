@@ -2,43 +2,40 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const QRCode = require("qrcode");
-const mongoose = require("mongoose");
+const fs = require("fs");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// ---------- MIDDLEWARE ----------
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// ---------- DATABASE ----------
-/*mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch(err => console.error(err));
-*/
-const User = mongoose.model("User", new mongoose.Schema({
-  email: { type: String, unique: true },
-  password: String
-}));
+// ---------- TEMP USER STORE (NO DB) ----------
+const users = [];
 
 // ---------- SIGNUP ----------
-app.post("/signup", async (req, res) => {
+app.post("/signup", (req, res) => {
   const { email, password } = req.body;
 
-  const exists = await User.findOne({ email });
-  if (exists) {
-    return res.status(400).json({ error: "Email already sexists" });
+  if (!email || !password) {
+    return res.status(400).json({ error: "Missing fields" });
   }
 
-  await User.create({ email, password });
+  const exists = users.find(u => u.email === email);
+  if (exists) {
+    return res.status(400).json({ error: "Email already exists" });
+  }
+
+  users.push({ email, password });
   res.json({ message: "Signup successful!" });
 });
 
 // ---------- LOGIN ----------
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
-  const users = loadUsers();
 
   const user = users.find(
     u => u.email === email && u.password === password
@@ -51,8 +48,7 @@ app.post("/login", (req, res) => {
   res.json({ message: "Login successful!" });
 });
 
-
-// ---------- QR ----------
+// ---------- QR GENERATE ----------
 app.post("/generate", async (req, res) => {
   let { resume, video } = req.body;
 
@@ -75,11 +71,12 @@ app.post("/generate", async (req, res) => {
 <h2>Intro Video</h2>
 <iframe src="${video}" width="100%" height="400"></iframe>
 </body>
-</html>`;
+</html>
+`;
 
   const fileName = `portfolio_${Date.now()}.html`;
   const filePath = path.join(__dirname, "public", fileName);
-  require("fs").writeFileSync(filePath, html);
+  fs.writeFileSync(filePath, html);
 
   const link = `${process.env.RENDER_EXTERNAL_URL}/${fileName}`;
   const qrCode = await QRCode.toDataURL(link);
@@ -87,6 +84,7 @@ app.post("/generate", async (req, res) => {
   res.json({ qrCode, link });
 });
 
+// ---------- START SERVER ----------
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Running on ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
