@@ -98,10 +98,14 @@ h4 {
   }
 }
 
-/* Form Fields */
+/* ===============================
+   FORM FIELDS (FIXED SPACING)
+================================ */
+
 .field {
   display: grid;
   gap: 6px;
+  margin-bottom: 18px; /* ✅ space between inputs & button */
 }
 
 .field input[type="text"],
@@ -130,7 +134,10 @@ h4 {
   resize: vertical;
 }
 
-/* Buttons */
+/* ===============================
+   BUTTONS
+================================ */
+
 .actions {
   display: flex;
   gap: 10px;
@@ -147,6 +154,7 @@ h4 {
   cursor: pointer;
   font-weight: 600;
   transition: background 0.3s ease, transform 0.05s ease;
+  margin-top: 8px; /* ✅ space above button */
 }
 
 .btn:hover {
@@ -233,6 +241,7 @@ h4 {
   border-radius: 999px;
   text-decoration: none;
   color: var(--primary);
+  leading-trim: both;
   font-size: 14px;
 }
 
@@ -241,10 +250,9 @@ h4 {
 }
 
 /* ===============================
-   LOGIN PAGE FIX (CLICK ISSUE)
+   LOGIN / SIGNUP PAGE FIX
 ================================ */
 
-/* Center login page properly */
 .page-center {
   min-height: 100vh;
   display: flex;
@@ -253,14 +261,12 @@ h4 {
   pointer-events: auto;
 }
 
-/* Login card specific spacing */
 .page-center .card {
   width: 100%;
   max-width: 420px;
   pointer-events: auto;
 }
 
-/* Ensure form & button are clickable */
 form {
   pointer-events: auto;
 }
@@ -271,4 +277,8 @@ button,
   cursor: pointer;
   position: relative;
   z-index: 5;
+}
+
+form .field:last-of-type {
+  margin-bottom: 32px;
 }
