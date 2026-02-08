@@ -3,6 +3,7 @@ const cors = require("cors");
 const path = require("path");
 const QRCode = require("qrcode");
 const fs = require("fs");
+const multer = require("multer");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,7 +14,33 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// ---------- TEMP USER STORE (NO DB) ----------
+// ---------- CREATE UPLOAD FOLDER ----------
+const uploadDir = path.join(__dirname, "public/uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// ---------- MULTER CONFIG ----------
+const storage = multer.diskStorage({
+  destination: uploadDir,
+  filename: (req, file, cb) => {
+    const uniqueName = Date.now() + "-" + file.originalname;
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype !== "application/pdf") {
+      cb(new Error("Only PDF files allowed"));
+    } else {
+      cb(null, true);
+    }
+  }
+});
+
+// ---------- TEMP USER STORE ----------
 const users = [];
 
 // ---------- SIGNUP ----------
@@ -48,40 +75,59 @@ app.post("/login", (req, res) => {
   res.json({ message: "Login successful!" });
 });
 
-// ---------- QR GENERATE ----------
-app.post("/generate", async (req, res) => {
-  let { resume, video } = req.body;
-
+// ---------- QR GENERATE (PDF + VIDEO) ----------
+app.post("/generate", upload.single("resume"), async (req, res) => {
   try {
-    const videoId = video.includes("youtu.be")
-      ? video.split("youtu.be/")[1].split("?")[0]
-      : new URL(video).searchParams.get("v");
+    const videoUrl = req.body.video;
+    const pdfFile = req.file;
 
-    video = `https://www.youtube.com/embed/${videoId}`;
-  } catch {
-    return res.status(400).json({ error: "Invalid YouTube URL" });
-  }
+    if (!pdfFile) {
+      return res.status(400).json({ error: "PDF resume required" });
+    }
 
-  const html = `
+    let videoId;
+    try {
+      videoId = videoUrl.includes("youtu.be")
+        ? videoUrl.split("youtu.be/")[1].split("?")[0]
+        : new URL(videoUrl).searchParams.get("v");
+    } catch {
+      return res.status(400).json({ error: "Invalid YouTube URL" });
+    }
+
+    const videoEmbed = `https://www.youtube.com/embed/${videoId}`;
+    const resumePath = `/uploads/${pdfFile.filename}`;
+
+    const html = `
 <!DOCTYPE html>
 <html>
+<head>
+  <title>Portfolio</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    iframe { border: none; }
+  </style>
+</head>
 <body>
-<h2>Resume</h2>
-<a href="${resume}" target="_blank">View Resume</a>
-<h2>Intro Video</h2>
-<iframe src="${video}" width="100%" height="400"></iframe>
+  <h2>Resume</h2>
+  <iframe src="${resumePath}" width="100%" height="600"></iframe>
+
+  <h2>Intro Video</h2>
+  <iframe src="${videoEmbed}" width="100%" height="400"></iframe>
 </body>
 </html>
 `;
 
-  const fileName = `portfolio_${Date.now()}.html`;
-  const filePath = path.join(__dirname, "public", fileName);
-  fs.writeFileSync(filePath, html);
+    const fileName = `portfolio_${Date.now()}.html`;
+    const filePath = path.join(__dirname, "public", fileName);
+    fs.writeFileSync(filePath, html);
 
-  const link = `${process.env.RENDER_EXTERNAL_URL}/${fileName}`;
-  const qrCode = await QRCode.toDataURL(link);
+    const link = `${process.env.RENDER_EXTERNAL_URL}/${fileName}`;
+    const qrCode = await QRCode.toDataURL(link);
 
-  res.json({ qrCode, link });
+    res.json({ qrCode, link });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 // ---------- START SERVER ----------

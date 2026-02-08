@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Generate Portfolio QR</title>
-  <link rel="stylesheet" href="/style.css">
-
+  <link rel="stylesheet" href="/style.css" />
 </head>
+
 <body>
   <header class="site-header">
     <h1>Create Your Portfolio QR</h1>
@@ -14,59 +14,79 @@
 
   <main class="container">
     <div class="card" style="max-width: 500px; margin: auto;">
-      <form id="portfolioForm">
-        
+      
+      <!-- FORM -->
+      <form id="qrForm" enctype="multipart/form-data">
+
         <div class="field">
-          <label for="resumeLink">Resume Link</label>
-          <input type="url" id="resumeLink" placeholder="https://drive.google.com/your-resume" required>
+          <label>Upload Resume (PDF only)</label>
+          <input type="file" id="resume" accept="application/pdf" required />
         </div>
 
         <div class="field" style="margin-top: 16px;">
-          <label for="videoLink">Intro Video Link</label>
-          <input type="url" id="videoLink" placeholder="https://youtube.com/your-intro" required>
+          <label>Intro Video Link</label>
+          <input
+            type="url"
+            id="video"
+            placeholder="https://youtube.com/your-intro"
+            required
+          />
         </div>
 
         <div class="actions" style="margin-top: 24px;">
-          <button type="submit" class="btn" style="width: 100%;">Generate QR Code</button>
+          <button type="submit" class="btn" style="width: 100%;">
+            Generate QR Code
+          </button>
         </div>
       </form>
 
+      <!-- RESULT -->
       <div id="qrResult" style="text-align: center; margin-top: 24px;"></div>
+
     </div>
   </main>
 
-  
-
+  <!-- SCRIPT -->
   <script>
-    document.getElementById("portfolioForm").addEventListener("submit", async (e) => {
+    document.getElementById("qrForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      let data = {
-        resume: document.getElementById("resumeLink").value,
-        video: document.getElementById("videoLink").value
-      };
+      const resumeFile = document.getElementById("resume").files[0];
+      const video = document.getElementById("video").value;
+
+      if (!resumeFile) {
+        alert("Please upload a PDF resume");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("resume", resumeFile);
+      formData.append("video", video);
 
       try {
-        let res = await fetch("https://qr-portfolio.onrender.com/generate", {
-
+        const res = await fetch("/generate", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data)
+          body: formData
         });
 
-        let result = await res.json();
+        const result = await res.json();
 
-        if (res.ok) {
-          document.getElementById("qrResult").innerHTML = `
-            <h3>Your QR Code:</h3>
-            <img src="${result.qrCode}" alt="QR Code" style="max-width: 100%; height: auto;">
-            <p><a href="${result.link}" target="_blank">View Your Microsite</a></p>
-          `;
-        } else {
-          alert(result.error);
+        if (!res.ok) {
+          alert(result.error || "Something went wrong");
+          return;
         }
-      } catch (error) {
-        alert("Error generating QR code.");
+
+        document.getElementById("qrResult").innerHTML = `
+          <h3>Your QR Code:</h3>
+          <img src="${result.qrCode}" alt="QR Code" style="max-width: 100%; height: auto;" />
+          <p>
+            <a href="${result.link}" target="_blank" class="link">
+              View Your Microsite
+            </a>
+          </p>
+        `;
+      } catch (err) {
+        alert("Server error. Please try again.");
       }
     });
   </script>
