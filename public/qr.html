@@ -53,11 +53,7 @@
         <!-- Video file upload -->
         <div class="field" id="videoUploadBox" style="margin-top: 16px; display:none;">
           <label>Upload Intro Video (max 500MB)</label>
-          <input
-            type="file"
-            id="videoFile"
-            accept="video/*"
-          />
+          <input type="file" id="videoFile" accept="video/*" />
           <p class="tiny muted" style="margin: 6px 0 0;">
             Tip: Big uploads may take time on slow network.
           </p>
@@ -94,6 +90,19 @@
       });
     });
 
+    // Download QR function (works with base64 image)
+    function downloadQR() {
+      const img = document.getElementById("qrImage");
+      if (!img) return;
+
+      const a = document.createElement("a");
+      a.href = img.src;
+      a.download = "portfolio-qr.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
     // Submit form
     document.getElementById("qrForm").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -105,7 +114,6 @@
       }
 
       const selected = document.querySelector('input[name="videoOption"]:checked').value;
-
       const videoLink = document.getElementById("videoLink").value.trim();
       const videoFile = document.getElementById("videoFile").files[0];
 
@@ -129,7 +137,7 @@
       if (selected === "link") {
         formData.append("videoLink", videoLink);
       } else {
-        // (Optional extra client-side check)
+        // Client-side 500MB check
         const maxSize = 500 * 1024 * 1024; // 500MB
         if (videoFile.size > maxSize) {
           alert("Video is too large. Max allowed is 500MB.");
@@ -138,7 +146,6 @@
         formData.append("videoFile", videoFile);
       }
 
-      // UI
       document.getElementById("qrResult").innerHTML = `<p class="muted">Generating... please wait</p>`;
 
       try {
@@ -157,8 +164,19 @@
 
         document.getElementById("qrResult").innerHTML = `
           <h3>Your QR Code:</h3>
-          <img src="${result.qrCode}" alt="QR Code" style="max-width: 100%; height: auto;" />
-          <p style="margin-top:12px;">
+
+          <img
+            id="qrImage"
+            src="${result.qrCode}"
+            alt="QR Code"
+            style="max-width: 220px; height: auto; display:block; margin: 16px auto;"
+          />
+
+          <div class="actions" style="justify-content:center; margin-top: 12px;">
+            <button type="button" class="btn outline" onclick="downloadQR()">Download QR</button>
+          </div>
+
+          <p style="margin-top:14px;">
             <a href="${result.link}" target="_blank" class="link">View Your Microsite</a>
           </p>
         `;
