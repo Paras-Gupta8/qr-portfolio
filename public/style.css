@@ -282,3 +282,21 @@ button,
 form .field:last-of-type {
   margin-bottom: 32px;
 }
+
+/* ===== Spacing fixes for Login/Signup forms ===== */
+
+/* Add spacing between each field block */
+.page-center form .field {
+  margin-top: 16px;
+}
+
+/* Remove extra top margin on very first field */
+.page-center form .field:first-child {
+  margin-top: 0;
+}
+
+/* Add space between last field (Password) and button */
+.page-center form .btn {
+  margin-top: 20px;
+  width: 100%;
+}

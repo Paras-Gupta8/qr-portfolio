@@ -10,33 +10,61 @@
 <body>
   <header class="site-header">
     <h1>Create Your Portfolio QR</h1>
+    <p class="subtitle">Upload Resume + Add video (YouTube link OR Video file)</p>
   </header>
 
   <main class="container">
-    <div class="card" style="max-width: 500px; margin: auto;">
-      
+    <div class="card" style="max-width: 520px; margin: auto;">
+
       <!-- FORM -->
       <form id="qrForm" enctype="multipart/form-data">
 
+        <!-- Resume PDF -->
         <div class="field">
           <label>Upload Resume (PDF only)</label>
           <input type="file" id="resume" accept="application/pdf" required />
         </div>
 
+        <!-- Choice -->
         <div class="field" style="margin-top: 16px;">
-          <label>Intro Video Link</label>
+          <label>Intro Video Option</label>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="radio" name="videoOption" value="link" checked />
+              YouTube Link
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="radio" name="videoOption" value="upload" />
+              Upload Video (max 500MB)
+            </label>
+          </div>
+        </div>
+
+        <!-- YouTube link -->
+        <div class="field" id="videoLinkBox" style="margin-top: 16px;">
+          <label>Intro Video Link (YouTube)</label>
           <input
             type="url"
-            id="video"
-            placeholder="https://youtube.com/your-intro"
-            required
+            id="videoLink"
+            placeholder="https://youtube.com/watch?v=..."
           />
         </div>
 
+        <!-- Video file upload -->
+        <div class="field" id="videoUploadBox" style="margin-top: 16px; display:none;">
+          <label>Upload Intro Video (max 500MB)</label>
+          <input
+            type="file"
+            id="videoFile"
+            accept="video/*"
+          />
+          <p class="tiny muted" style="margin: 6px 0 0;">
+            Tip: Big uploads may take time on slow network.
+          </p>
+        </div>
+
         <div class="actions" style="margin-top: 24px;">
-          <button type="submit" class="btn" style="width: 100%;">
-            Generate QR Code
-          </button>
+          <button type="submit" class="btn" style="width: 100%;">Generate QR Code</button>
         </div>
       </form>
 
@@ -46,22 +74,72 @@
     </div>
   </main>
 
-  <!-- SCRIPT -->
   <script>
+    // Toggle inputs based on choice
+    const linkBox = document.getElementById("videoLinkBox");
+    const uploadBox = document.getElementById("videoUploadBox");
+
+    document.querySelectorAll('input[name="videoOption"]').forEach(radio => {
+      radio.addEventListener("change", () => {
+        const selected = document.querySelector('input[name="videoOption"]:checked').value;
+        if (selected === "link") {
+          linkBox.style.display = "block";
+          uploadBox.style.display = "none";
+          document.getElementById("videoFile").value = "";
+        } else {
+          linkBox.style.display = "none";
+          uploadBox.style.display = "block";
+          document.getElementById("videoLink").value = "";
+        }
+      });
+    });
+
+    // Submit form
     document.getElementById("qrForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const resumeFile = document.getElementById("resume").files[0];
-      const video = document.getElementById("video").value;
-
       if (!resumeFile) {
-        alert("Please upload a PDF resume");
+        alert("Please upload a PDF resume.");
         return;
+      }
+
+      const selected = document.querySelector('input[name="videoOption"]:checked').value;
+
+      const videoLink = document.getElementById("videoLink").value.trim();
+      const videoFile = document.getElementById("videoFile").files[0];
+
+      // Validate choice
+      if (selected === "link") {
+        if (!videoLink) {
+          alert("Please paste a YouTube link OR switch to upload video.");
+          return;
+        }
+      } else {
+        if (!videoFile) {
+          alert("Please upload a video file OR switch to YouTube link.");
+          return;
+        }
       }
 
       const formData = new FormData();
       formData.append("resume", resumeFile);
-      formData.append("video", video);
+
+      // IMPORTANT: backend expects videoLink or videoFile
+      if (selected === "link") {
+        formData.append("videoLink", videoLink);
+      } else {
+        // (Optional extra client-side check)
+        const maxSize = 500 * 1024 * 1024; // 500MB
+        if (videoFile.size > maxSize) {
+          alert("Video is too large. Max allowed is 500MB.");
+          return;
+        }
+        formData.append("videoFile", videoFile);
+      }
+
+      // UI
+      document.getElementById("qrResult").innerHTML = `<p class="muted">Generating... please wait</p>`;
 
       try {
         const res = await fetch("/generate", {
@@ -73,20 +151,20 @@
 
         if (!res.ok) {
           alert(result.error || "Something went wrong");
+          document.getElementById("qrResult").innerHTML = "";
           return;
         }
 
         document.getElementById("qrResult").innerHTML = `
           <h3>Your QR Code:</h3>
           <img src="${result.qrCode}" alt="QR Code" style="max-width: 100%; height: auto;" />
-          <p>
-            <a href="${result.link}" target="_blank" class="link">
-              View Your Microsite
-            </a>
+          <p style="margin-top:12px;">
+            <a href="${result.link}" target="_blank" class="link">View Your Microsite</a>
           </p>
         `;
       } catch (err) {
         alert("Server error. Please try again.");
+        document.getElementById("qrResult").innerHTML = "";
       }
     });
   </script>

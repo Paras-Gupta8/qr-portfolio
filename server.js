@@ -10,51 +10,62 @@ const PORT = process.env.PORT || 5000;
 
 // ---------- MIDDLEWARE ----------
 app.use(cors());
-app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+// Serve static files from /public
 app.use(express.static(path.join(__dirname, "public")));
 
 // ---------- CREATE UPLOAD FOLDER ----------
-const uploadDir = path.join(__dirname, "public/uploads");
+const uploadDir = path.join(__dirname, "public", "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// ---------- MULTER CONFIG ----------
+// ---------- MULTER CONFIG (PDF + VIDEO) ----------
 const storage = multer.diskStorage({
-  destination: uploadDir,
+  destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
-    const uniqueName = Date.now() + "-" + file.originalname;
-    cb(null, uniqueName);
-  }
+    const safeName = file.originalname.replace(/\s+/g, "_");
+    cb(null, `${Date.now()}-${safeName}`);
+  },
 });
 
+// Allow: resume must be pdf, videoFile must be video
+function fileFilter(req, file, cb) {
+  if (file.fieldname === "resume") {
+    if (file.mimetype === "application/pdf") return cb(null, true);
+    return cb(new Error("Resume must be a PDF"));
+  }
+
+  if (file.fieldname === "videoFile") {
+    if (file.mimetype && file.mimetype.startsWith("video/")) return cb(null, true);
+    return cb(new Error("Video must be a valid video file"));
+  }
+
+  cb(new Error("Unexpected field"));
+}
+
+// 500 MB limit for uploaded video (multer applies per file)
 const upload = multer({
   storage,
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype !== "application/pdf") {
-      cb(new Error("Only PDF files allowed"));
-    } else {
-      cb(null, true);
-    }
-  }
+  fileFilter,
+  limits: {
+    fileSize: 500 * 1024 * 1024, // 500MB
+  },
 });
 
-// ---------- TEMP USER STORE ----------
+// ---------- TEMP USER STORE (RESETS ON REDEPLOY) ----------
 const users = [];
 
 // ---------- SIGNUP ----------
 app.post("/signup", (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "Missing fields" });
-  }
+  if (!email || !password) return res.status(400).json({ error: "Missing fields" });
 
-  const exists = users.find(u => u.email === email);
-  if (exists) {
-    return res.status(400).json({ error: "Email already exists" });
-  }
+  const exists = users.find((u) => u.email === email);
+  if (exists) return res.status(400).json({ error: "Email already exists" });
 
   users.push({ email, password });
   res.json({ message: "Signup successful!" });
@@ -64,71 +75,136 @@ app.post("/signup", (req, res) => {
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
 
-  const user = users.find(
-    u => u.email === email && u.password === password
-  );
-
-  if (!user) {
-    return res.status(401).json({ error: "Invalid email or password" });
-  }
+  const user = users.find((u) => u.email === email && u.password === password);
+  if (!user) return res.status(401).json({ error: "Invalid email or password" });
 
   res.json({ message: "Login successful!" });
 });
 
-// ---------- QR GENERATE (PDF + VIDEO) ----------
-app.post("/generate", upload.single("resume"), async (req, res) => {
+// ---------- HELPERS ----------
+function normalizeYoutubeToEmbed(videoUrl) {
   try {
-    const videoUrl = req.body.video;
-    const pdfFile = req.file;
+    if (!videoUrl) return null;
 
-    if (!pdfFile) {
-      return res.status(400).json({ error: "PDF resume required" });
+    // youtu.be/<id>
+    if (videoUrl.includes("youtu.be/")) {
+      const videoId = videoUrl.split("youtu.be/")[1].split("?")[0];
+      return `https://www.youtube.com/embed/${videoId}`;
     }
 
-    let videoId;
+    // youtube.com/watch?v=<id>
+    if (videoUrl.includes("youtube.com")) {
+      const u = new URL(videoUrl);
+      const videoId = u.searchParams.get("v");
+      if (!videoId) return null;
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function getBaseUrl(req) {
+  // Render provides this automatically
+  if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL;
+  // fallback for local/dev/other hosts
+  return `${req.protocol}://${req.get("host")}`;
+}
+
+// ---------- QR GENERATE (PDF + VIDEO LINK OR VIDEO FILE) ----------
+app.post(
+  "/generate",
+  upload.fields([
+    { name: "resume", maxCount: 1 },
+    { name: "videoFile", maxCount: 1 },
+  ]),
+  async (req, res) => {
     try {
-      videoId = videoUrl.includes("youtu.be")
-        ? videoUrl.split("youtu.be/")[1].split("?")[0]
-        : new URL(videoUrl).searchParams.get("v");
-    } catch {
-      return res.status(400).json({ error: "Invalid YouTube URL" });
-    }
+      const resumeFile = req.files?.resume?.[0];
+      const videoFile = req.files?.videoFile?.[0];
+      const videoLink = (req.body.videoLink || "").trim();
 
-    const videoEmbed = `https://www.youtube.com/embed/${videoId}`;
-    const resumePath = `/uploads/${pdfFile.filename}`;
+      if (!resumeFile) {
+        return res.status(400).json({ error: "PDF resume is required" });
+      }
 
-    const html = `
+      // resume path for microsite
+      const resumePath = `/uploads/${resumeFile.filename}`;
+
+      // Decide video output
+      let videoSectionHtml = "";
+      if (videoFile) {
+        const videoPath = `/uploads/${videoFile.filename}`;
+        videoSectionHtml = `
+          <h2>Intro Video</h2>
+          <video controls style="width:100%; max-height:500px; border-radius:12px;">
+            <source src="${videoPath}">
+            Your browser does not support the video tag.
+          </video>
+        `;
+      } else if (videoLink) {
+        const embed = normalizeYoutubeToEmbed(videoLink);
+        if (!embed) {
+          return res.status(400).json({ error: "Invalid YouTube URL" });
+        }
+        videoSectionHtml = `
+          <h2>Intro Video</h2>
+          <iframe src="${embed}" width="100%" height="400" style="border:none; border-radius:12px;" allowfullscreen></iframe>
+        `;
+      } else {
+        return res
+          .status(400)
+          .json({ error: "Provide either a YouTube link OR upload a video file" });
+      }
+
+      // Microsite HTML
+      const html = `
 <!DOCTYPE html>
 <html>
 <head>
   <title>Portfolio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial; padding: 20px; }
-    iframe { border: none; }
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; margin: auto; }
+    h2 { margin-top: 24px; }
+    iframe, video { width: 100%; }
   </style>
 </head>
 <body>
   <h2>Resume</h2>
-  <iframe src="${resumePath}" width="100%" height="600"></iframe>
+  <iframe src="${resumePath}" width="100%" height="650" style="border:none; border-radius:12px;"></iframe>
 
-  <h2>Intro Video</h2>
-  <iframe src="${videoEmbed}" width="100%" height="400"></iframe>
+  ${videoSectionHtml}
 </body>
 </html>
-`;
+      `.trim();
 
-    const fileName = `portfolio_${Date.now()}.html`;
-    const filePath = path.join(__dirname, "public", fileName);
-    fs.writeFileSync(filePath, html);
+      // Write microsite file
+      const fileName = `portfolio_${Date.now()}.html`;
+      const filePath = path.join(__dirname, "public", fileName);
+      fs.writeFileSync(filePath, html);
 
-    const link = `${process.env.RENDER_EXTERNAL_URL}/${fileName}`;
-    const qrCode = await QRCode.toDataURL(link);
+      // Build QR link
+      const baseUrl = getBaseUrl(req);
+      const link = `${baseUrl}/${fileName}`;
+      const qrCode = await QRCode.toDataURL(link);
 
-    res.json({ qrCode, link });
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
+      res.json({ qrCode, link });
+    } catch (err) {
+      // Multer errors (size, etc.)
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res.status(400).json({ error: "File too large. Max video size is 500MB." });
+        }
+        return res.status(400).json({ error: err.message });
+      }
+
+      res.status(500).json({ error: err.message || "Server error" });
+    }
   }
-});
+);
 
 // ---------- START SERVER ----------
 app.listen(PORT, "0.0.0.0", () => {
